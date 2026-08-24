@@ -21,27 +21,12 @@
       display: flex; flex-direction: column;
     }
     .tinder-card:active { cursor: grabbing; }
-    .tinder-card img {
-      width: 100%; height: 65%; object-fit: cover; pointer-events: none;
-    }
-    .tinder-info {
-      padding: 12px 15px; flex-grow: 1; display: flex; flex-direction: column;
-      justify-content: flex-start; color: #333;
-    }
+    .tinder-card img { width: 100%; height: 65%; object-fit: cover; pointer-events: none; }
+    .tinder-info { padding: 12px 15px; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start; color: #333; }
     .tinder-info h3 { margin: 0 0 5px 0; font-size: 1.1rem; font-family: sans-serif; }
-    .tinder-info p {
-      margin: 0 0 8px 0; color: #555; font-size: 0.8rem; font-family: sans-serif;
-      line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-    }
-    .game-meta {
-      display: flex; justify-content: space-between; font-size: 0.75rem;
-      font-family: sans-serif; color: #777; margin-top: auto; padding-top: 4px;
-      border-top: 1px solid rgba(0,0,0,0.05);
-    }
-    #no-games {
-      font-family: sans-serif; color: #888; text-align: center; font-size: 1.1rem;
-      display: flex; align-items: center; justify-content: center; height: 100%;
-    }
+    .tinder-info p { margin: 0 0 8px 0; color: #555; font-size: 0.8rem; font-family: sans-serif; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+    .game-meta { display: flex; justify-content: space-between; font-size: 0.75rem; font-family: sans-serif; color: #777; margin-top: auto; padding-top: 4px; border-top: 1px solid rgba(0,0,0,0.05); }
+    #no-games { font-family: sans-serif; color: #888; text-align: center; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; height: 100%; }
   </style>
 </head>
 <body>
@@ -53,46 +38,62 @@
 <script>
 const container = document.getElementById('tinder-container');
 
-window.addEventListener('message', function(event) {
-  // Принимаем ТЕКУЩУЮ одну игру от WeWeb
-  if (event.data && event.data.type === 'LOAD_SINGLE_GAME') {
-    renderSingleGame(event.data.game);
-  }
-});
+// ФУНКЦИЯ ДЛЯ СБОРА ДАННЫХ ИЗ АТРИБУТОВ ОКНА IFRAME
+function loadGameFromAttributes() {
+  try {
+    // Читаем атрибуты, которые WeWeb повесил на тег iframe
+    const frameElement = window.frameElement;
+    if (!frameElement) return;
 
-// Крикнем WeWeb при старте, что мы готовы получить первую игру
-window.parent.postMessage({ type: 'IFRAME_READY' }, '*');
+    const game = {
+      id: frameElement.getAttribute('data-id'),
+      title: frameElement.getAttribute('data-title'),
+      image: frameElement.getAttribute('data-image'),
+      description: frameElement.getAttribute('data-desc'),
+      gradient_color_1: frameElement.getAttribute('data-color1'),
+      gradient_color_2: frameElement.getAttribute('data-color2'),
+      gradient_angle: frameElement.getAttribute('data-angle'),
+      genres: frameElement.getAttribute('data-genres'),
+      rating: frameElement.getAttribute('data-rating')
+    };
 
-function renderSingleGame(game) {
-  if (!game) {
-    container.innerHTML = '<div id="no-games">Игра не найдена... 🕹️</div>';
-    return;
+    if (game.title) {
+      renderGame(game);
+    }
+  } catch (e) {
+    console.error("Ошибка чтения атрибутов:", e);
   }
-  
-  // Очищаем контейнер, чтобы старая игра не оставалась под новой
+}
+
+// Запускаем проверку каждую секунду, чтобы ловить обновления от WeWeb автоматически!
+setInterval(loadGameFromAttributes, 500);
+
+function renderGame(game) {
+  // Если карточка с таким ID уже отрисована, ничего не делаем
+  const currentCard = container.querySelector('.tinder-card');
+  if (currentCard && currentCard.getAttribute('data-game-id') === game.id) return;
+
   container.innerHTML = '';
   
   const card = document.createElement('div');
   card.className = 'tinder-card';
-  card.setAttribute('data-game-id', game.id || game.slug);
+  card.setAttribute('data-game-id', game.id);
   
-  // Настройка градиента
   if (game.gradient_color_1 && game.gradient_color_2) {
     const angle = game.gradient_angle || 180;
     card.style.background = `linear-gradient(${angle}deg, ${game.gradient_color_1}, ${game.gradient_color_2})`;
   }
   
-  const genresStr = game.genres ? (Array.isArray(game.genres) ? game.genres.join(', ') : game.genres) : '';
-  const rating = game.average_rating ? `⭐ ${Number(game.average_rating).toFixed(1)}` : '';
+  const ratingStr = game.rating ? `⭐ ${Number(game.rating).toFixed(1)}` : '';
   
   card.innerHTML = `
     <img src="${game.image || 'https://placeholder.com'}">
     <div class="tinder-info">
-      <h3>${game.title || game.title_eng || 'Без названия'}</h3>
-      <p>${game.description || game.description_eng || ''}</p>
+      <h3>${game.title}</h3>
+      <p>${game.description || ''}</p>
       <div class="game-meta">
-        <span>${genresStr}</span>
-        <span>${rating}</span>
+        <span>${game.genres || ''}</span>
+        <span>${ratingStr}</span>
       </div>
     </div>
   `;
@@ -134,7 +135,6 @@ function setupDrag(el) {
       const action = currentX > 0 ? 'like' : 'dislike';
       const gameId = el.getAttribute('data-game-id');
 
-      // Отправляем свайп в WeWeb
       window.parent.postMessage({
         type: 'TINDER_SWIPE',
         userId: gameId,
@@ -159,6 +159,5 @@ function setupDrag(el) {
   window.addEventListener('touchend', endDrag);
 }
 </script>
-
 </body>
 </html>
