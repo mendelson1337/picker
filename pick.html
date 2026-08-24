@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tinder Cards</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none; /* Запрещаем выделение текста при свайпе */
+    }
+    #tinder-container {
+      position: relative;
+      width: 320px;
+      height: 480px;
+      perspective: 1000px;
+    }
+    .tinder-card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 15px;
+      overflow: hidden;
+      background: white;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      cursor: grab;
+      transform-origin: 50% 100%;
+      touch-action: none; /* Отключаем стандартный скролл смартфона */
+    }
+    .tinder-card:active { cursor: grabbing; }
+    .tinder-card img {
+      width: 100%;
+      height: 80%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+    .tinder-info {
+      padding: 15px;
+      font-family: sans-serif;
+    }
+    .tinder-info h3 { margin: 0 0 5px 0; font-size: 1.2rem; }
+    .tinder-info p { margin: 0; color: #666; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<div id="tinder-container">
+  <div class="tinder-card" data-user-id="3">
+    <img src="https://unsplash.com">
+    <div class="tinder-info"><h3>Анна, 22</h3><p>Люблю кофе ☕</p></div>
+  </div>
+  <div class="tinder-card" data-user-id="2">
+    <img src="https://unsplash.com">
+    <div class="tinder-info"><h3>Игорь, 26</h3><p>Катаюсь на сноуборде 🏂</p></div>
+  </div>
+  <div class="tinder-card" data-user-id="1">
+    <img src="https://unsplash.com">
+    <div class="tinder-info"><h3>Мария, 24</h3><p>Ищу компанию на выставку 🎨</p></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const cards = document.querySelectorAll('.tinder-card');
+
+  cards.forEach(function (el) {
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let currentY = 0;
+
+    // Функция начала касания (мышь или палец)
+    function startDrag(e) {
+      isDragging = true;
+      el.style.transition = 'none'; // Отключаем плавность во время тащения
+      
+      // Клик мыши или тап пальцем
+      const pageX = e.pageX || e.touches[0].pageX;
+      const pageY = e.pageY || e.touches[0].pageY;
+      
+      startX = pageX;
+      startY = pageY;
+    }
+
+    // Функция движения
+    function moveDrag(e) {
+      if (!isDragging) return;
+      
+      const pageX = e.pageX || (e.touches && e.touches[0].pageX);
+      const pageY = e.pageY || (e.touches && e.touches[0].pageY);
+      
+      if (!pageX || !pageY) return;
+
+      currentX = pageX - startX;
+      currentY = pageY - startY;
+
+      // Считаем угол наклона карточки
+      const rotate = currentX * 0.05;
+
+      // Двигаем карточку за курсором
+      el.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotate}deg)`;
+    }
+
+    // Функция конца движения
+    function endDrag() {
+      if (!isDragging) return;
+      isDragging = false;
+
+      el.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+
+      // Если сдвинули больше чем на 120 пикселей — карточка улетает
+      if (Math.abs(currentX) > 120) {
+        const outX = currentX > 0 ? window.innerWidth : -window.innerWidth;
+        const rotate = currentX * 0.05;
+        
+        el.style.transform = `translate(${outX}px, ${currentY}px) rotate(${rotate}deg)`;
+        el.style.opacity = 0;
+
+        const action = currentX > 0 ? 'like' : 'dislike';
+        const userId = el.getAttribute('data-user-id');
+
+        // Отправка события (в консоль и наружу для WeWeb)
+        console.log(`Свайп: ${action}, Пользователь ID: ${userId}`);
+        
+        window.parent.postMessage({
+          type: 'TINDER_SWIPE',
+          userId: userId,
+          action: action
+        }, '*');
+
+        // Удаляем карточку из кода после завершения анимации вылета
+        setTimeout(() => el.remove(), 300);
+      } else {
+        // Если сдвинули слабо — возвращаем карточку на место в центр
+        el.style.transform = '';
+      }
+      
+      // Сбрасываем координаты
+      currentX = 0;
+      currentY = 0;
+    }
+
+    // Слушатели для мышки (Компьютер)
+    el.addEventListener('mousedown', startDrag);
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('mouseup', endDrag);
+
+    // Слушатели для тач-скрина (Смартфон)
+    el.addEventListener('touchstart', startDrag);
+    window.addEventListener('touchmove', moveDrag);
+    window.addEventListener('touchend', endDrag);
+  });
+});
+</script>
+
+</body>
+</html>
