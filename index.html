@@ -28,9 +28,7 @@
       padding: 12px 15px; flex-grow: 1; display: flex; flex-direction: column;
       justify-content: flex-start; color: #333;
     }
-    .tinder-info h3 {
-      margin: 0 0 5px 0; font-size: 1.1rem; font-family: sans-serif;
-    }
+    .tinder-info h3 { margin: 0 0 5px 0; font-size: 1.1rem; font-family: sans-serif; }
     .tinder-info p {
       margin: 0 0 8px 0; color: #555; font-size: 0.8rem; font-family: sans-serif;
       line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
@@ -49,59 +47,58 @@
 <body>
 
 <div id="tinder-container">
-  <div id="no-games">Загрузка игр... 🎮</div>
+  <div id="no-games">Загрузка игры... 🎮</div>
 </div>
 
 <script>
 const container = document.getElementById('tinder-container');
 
 window.addEventListener('message', function(event) {
-  if (event.data && event.data.type === 'LOAD_GAMES') {
-    initCards(event.data.games);
+  // Принимаем ТЕКУЩУЮ одну игру от WeWeb
+  if (event.data && event.data.type === 'LOAD_SINGLE_GAME') {
+    renderSingleGame(event.data.game);
   }
 });
 
-// КРИЧИМ WEWEB, ЧТО ФРЕЙМ ЗАГРУЗИЛСЯ И ГОТОВ ПРИНЯТЬ ИГРУ
+// Крикнем WeWeb при старте, что мы готовы получить первую игру
 window.parent.postMessage({ type: 'IFRAME_READY' }, '*');
 
-function initCards(gamesArray) {
-  if (!gamesArray || gamesArray.length === 0) {
-    container.innerHTML = '<div id="no-games">Игры закончились! 🕹️</div>';
+function renderSingleGame(game) {
+  if (!game) {
+    container.innerHTML = '<div id="no-games">Игра не найдена... 🕹️</div>';
     return;
   }
   
+  // Очищаем контейнер, чтобы старая игра не оставалась под новой
   container.innerHTML = '';
   
-  for (let i = gamesArray.length - 1; i >= 0; i--) {
-    const game = gamesArray[i];
-    const card = document.createElement('div');
-    card.className = 'tinder-card';
-    card.setAttribute('data-game-id', game.id);
-    
-    // Собираем градиент для нижней информационной части, если он задан в базе
-    if (game.gradient_color_1 && game.gradient_color_2) {
-      const angle = game.gradient_angle || 180;
-      card.style.background = `linear-gradient(${angle}deg, ${game.gradient_color_1}, ${game.gradient_color_2})`;
-    }
-    
-    const genresStr = game.genres ? game.genres.join(', ') : '';
-    const rating = game.average_rating ? `⭐ ${Number(game.average_rating).toFixed(1)}` : '';
-    
-    card.innerHTML = `
-      <img src="${game.image || 'https://placeholder.com'}">
-      <div class="tinder-info">
-        <h3>${game.title}</h3>
-        <p>${game.description || ''}</p>
-        <div class="game-meta">
-          <span>${genresStr}</span>
-          <span>${rating}</span>
-        </div>
-      </div>
-    `;
-    
-    setupDrag(card);
-    container.appendChild(card);
+  const card = document.createElement('div');
+  card.className = 'tinder-card';
+  card.setAttribute('data-game-id', game.id || game.slug);
+  
+  // Настройка градиента
+  if (game.gradient_color_1 && game.gradient_color_2) {
+    const angle = game.gradient_angle || 180;
+    card.style.background = `linear-gradient(${angle}deg, ${game.gradient_color_1}, ${game.gradient_color_2})`;
   }
+  
+  const genresStr = game.genres ? (Array.isArray(game.genres) ? game.genres.join(', ') : game.genres) : '';
+  const rating = game.average_rating ? `⭐ ${Number(game.average_rating).toFixed(1)}` : '';
+  
+  card.innerHTML = `
+    <img src="${game.image || 'https://placeholder.com'}">
+    <div class="tinder-info">
+      <h3>${game.title || game.title_eng || 'Без названия'}</h3>
+      <p>${game.description || game.description_eng || ''}</p>
+      <div class="game-meta">
+        <span>${genresStr}</span>
+        <span>${rating}</span>
+      </div>
+    </div>
+  `;
+  
+  setupDrag(card);
+  container.appendChild(card);
 }
 
 function setupDrag(el) {
@@ -137,6 +134,7 @@ function setupDrag(el) {
       const action = currentX > 0 ? 'like' : 'dislike';
       const gameId = el.getAttribute('data-game-id');
 
+      // Отправляем свайп в WeWeb
       window.parent.postMessage({
         type: 'TINDER_SWIPE',
         userId: gameId,
@@ -145,9 +143,7 @@ function setupDrag(el) {
 
       setTimeout(() => {
         el.remove();
-        if (container.querySelectorAll('.tinder-card').length === 0) {
-          container.innerHTML = '<div id="no-games">Вы просмотрели все игры! 🕹️</div>';
-        }
+        container.innerHTML = '<div id="no-games">Загрузка следующей игры... 🎮</div>';
       }, 300);
     } else {
       el.style.transform = '';
