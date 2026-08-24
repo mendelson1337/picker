@@ -61,6 +61,9 @@ window.addEventListener('message', function(event) {
   }
 });
 
+// КРИЧИМ WEWEB, ЧТО ФРЕЙМ ЗАГРУЗИЛСЯ И ГОТОВ ПРИНЯТЬ ИГРУ
+window.parent.postMessage({ type: 'IFRAME_READY' }, '*');
+
 function initCards(gamesArray) {
   if (!gamesArray || gamesArray.length === 0) {
     container.innerHTML = '<div id="no-games">Игры закончились! 🕹️</div>';
